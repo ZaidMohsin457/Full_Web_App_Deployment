@@ -1,0 +1,11 @@
+-- Create the user
+CREATE USER 'devops_user'@'localhost' IDENTIFIED BY 'password123';
+
+-- Grant full permissions to your database (devops_mid_exam)
+GRANT ALL PRIVILEGES ON devops_mid_exam.* TO 'devops_user'@'localhost';
+
+-- Apply changes
+FLUSH PRIVILEGES;
+
+-- Exit MySQL
+EXIT;

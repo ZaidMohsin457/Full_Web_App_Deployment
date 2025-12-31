@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # 1. The Database
+  db:
+    image: mariadb:10.5
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db1
+      MYSQL_USER: devops_user
+      MYSQL_PASSWORD: password123
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    # FIX 1: Add the password (-proot) to the healthcheck command
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. The Backend
+  backend:
+    build: ./backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      # Ensure these match your main.py exactly
+      - DB_USERNAME=devops_user
+      - DB_PASSWORD=password123
+      - DB_HOST=db
+      - DB__NAME=db1
+    # FIX 2: Ensure backend waits for the DB to be healthy
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 3. The Frontend
+  frontend:
+    build: ./frontend
+    ports:
+      - "8000:3000"
+    environment:
+      - REACT_APP_BACKEND_URL=http://54.89.32.212:5000
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
