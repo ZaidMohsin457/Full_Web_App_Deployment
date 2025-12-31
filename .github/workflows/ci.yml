@@ -1,0 +1,83 @@
+name: CI - Build, Push & Deploy (latest only)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image to ECR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build & Push Docker image (latest)
+        run: |
+          REGISTRY=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+          REPO=${{ secrets.ECR_REPOSITORY }}
+          REPO1=${{ secrets.ECR_REPOSITORY1 }}
+          
+          cd frontend/
+          docker build -t $REGISTRY/$REPO:latest .
+          docker push $REGISTRY/$REPO:latest
+          
+          cd ..
+          cd backend/
+          docker build -t $REGISTRY/$REPO1:latest .
+          docker push $REGISTRY/$REPO1:latest
+          
+      - name: Copy docker-compose file to Testing EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: "docker-compose.yml"
+          target: "/home/ubuntu/"          
+
+
+
+  deploy-to-ec2:
+    name: Deploy to EC2
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy application on EC2
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            REGISTRY=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+            REPO=${{ secrets.ECR_REPOSITORY }}
+            REPO1=${{ secrets.ECR_REPOSITORY1 }}
+
+            echo "Deploying latest image..."
+
+            aws ecr get-login-password --region us-east-1 \
+            | docker login --username AWS --password-stdin $REGISTRY
+
+            docker pull $REGISTRY/$REPO:latest
+            docker pull $REGISTRY/$REPO1:latest
+            docker compose down
+            
+            docker compose up
