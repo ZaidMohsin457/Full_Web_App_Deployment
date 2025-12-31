@@ -23,7 +23,7 @@ services:
 
   # 2. The Backend
   backend:
-    build: 637423375034.dkr.ecr.us-east-1.amazonaws.com/repo1:latest
+    image: 637423375034.dkr.ecr.us-east-1.amazonaws.com/repo1:latest
     restart: always
     ports:
       - "5000:5000"
@@ -40,7 +40,7 @@ services:
 
   # 3. The Frontend
   frontend:
-    build: 637423375034.dkr.ecr.us-east-1.amazonaws.com/devops-practice:latest
+    image: 637423375034.dkr.ecr.us-east-1.amazonaws.com/devops-practice:latest
     ports:
       - "8000:3000"
     environment:
